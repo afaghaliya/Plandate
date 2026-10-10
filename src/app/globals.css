@@ -1,0 +1,269 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Planadate design system
+   Warm, travel-forward and social: sand paper, ink text, a coral primary for
+   action, teal for social/people surfaces, amber for time and spontaneity.
+   Every colour is a token so light/dark and future theming stay one change.
+--------------------------------------------------------------------------- */
+
+:root {
+  --ink: #17130f;
+  --ink-soft: #4b423a;
+  --ink-faint: #7d7268;
+
+  --paper: #fdfaf6;
+  --surface: #ffffff;
+  --surface-2: #f6f1ea;
+  --surface-3: #efe7dc;
+
+  --line: #e6dcd0;
+  --line-strong: #d5c7b6;
+
+  --brand: #e8452a;
+  --brand-strong: #c8351d;
+  --brand-soft: #fdece8;
+  --brand-ink: #7d1c0c;
+
+  --teal: #0f766e;
+  --teal-soft: #e0f2f0;
+  --teal-ink: #0a4f49;
+
+  --amber: #b45309;
+  --amber-soft: #fdf1dc;
+
+  --danger: #b91c1c;
+  --danger-soft: #fdeaea;
+
+  --success: #15803d;
+  --success-soft: #e6f4ea;
+
+  --ring: #e8452a;
+
+  --radius-card: 18px;
+  --shadow-sm: 0 1px 2px rgba(23, 19, 15, 0.06), 0 1px 3px rgba(23, 19, 15, 0.04);
+  --shadow-md: 0 4px 16px rgba(23, 19, 15, 0.08), 0 1px 3px rgba(23, 19, 15, 0.05);
+  --shadow-lg: 0 18px 48px rgba(23, 19, 15, 0.14);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #f7f1ea;
+    --ink-soft: #cbbfb2;
+    --ink-faint: #9a8c7e;
+
+    --paper: #14110e;
+    --surface: #1c1815;
+    --surface-2: #241f1a;
+    --surface-3: #2e2721;
+
+    --line: #322b24;
+    --line-strong: #463d34;
+
+    --brand: #ff6a4d;
+    --brand-strong: #ff8570;
+    --brand-soft: #331914;
+    --brand-ink: #ffb3a3;
+
+    --teal: #3fb8ac;
+    --teal-soft: #10302e;
+    --teal-ink: #8fe0d8;
+
+    --amber: #e0a458;
+    --amber-soft: #322415;
+
+    --danger: #f87171;
+    --danger-soft: #35191a;
+
+    --success: #4ade80;
+    --success-soft: #16281c;
+
+    --ring: #ff6a4d;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.55);
+    --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.6);
+  }
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
+
+  --color-teal: var(--teal);
+  --color-teal-soft: var(--teal-soft);
+  --color-teal-ink: var(--teal-ink);
+
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+
+  --radius-card: var(--radius-card);
+
+  --shadow-card: var(--shadow-sm);
+  --shadow-raised: var(--shadow-md);
+  --shadow-float: var(--shadow-lg);
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    sans-serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    /* room for the fixed mobile tab bar */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--brand-soft);
+    color: var(--brand-ink);
+  }
+}
+
+@layer utilities {
+  .container-page {
+    width: 100%;
+    max-width: 76rem;
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+
+  @media (min-width: 768px) {
+    .container-page {
+      padding-inline: 1.5rem;
+    }
+  }
+
+  .hairline {
+    border-bottom: 1px solid var(--line);
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  /* Hero wash: warm dusk gradient behind the landing headline. */
+  .hero-wash {
+    background:
+      radial-gradient(80rem 40rem at 12% -10%, var(--brand-soft), transparent 60%),
+      radial-gradient(60rem 34rem at 92% 4%, var(--teal-soft), transparent 62%),
+      linear-gradient(180deg, var(--paper), var(--paper));
+  }
+
+  .timeline-rail {
+    background: linear-gradient(180deg, var(--brand) 0%, var(--teal) 100%);
+  }
+
+  .animate-rise {
+    animation: rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .animate-fade {
+    animation: fade 0.3s ease both;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise,
+  .animate-fade {
+    animation: none;
+  }
+}
+
+/* Leaflet: keep the map inside our surface language. */
+.leaflet-container {
+  background: var(--surface-2);
+  font-family: var(--font-sans);
+  border-radius: var(--radius-card);
+  z-index: 0;
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-md);
+}
+
+.leaflet-popup-content {
+  margin: 0.7rem 0.85rem;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.leaflet-bar a,
+.leaflet-bar a:hover {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--line);
+}

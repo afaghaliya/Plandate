@@ -1,0 +1,342 @@
+// Planadate schema.
+//
+// Dev runs on SQLite so the whole app works with zero external setup.
+// To move to PostgreSQL (the production target) change `provider` to
+// "postgresql" and point DATABASE_URL at your instance -- nothing else in the
+// schema needs to change. Scalar lists / enums are deliberately avoided and
+// modelled as JSON-encoded strings + TypeScript unions (src/lib/domain.ts) so
+// the schema is portable across both engines.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------- users
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?
+  name         String
+  image        String?
+  bio          String?
+  homeCity     String?
+  birthYear    Int?
+  // JSON string[] -- see domain.INTEREST_CATEGORIES
+  interests    String   @default("[]")
+  // JSON string[] -- preferred group types
+  preferences  String   @default("{}")
+  // "none" | "email" | "id_verified"
+  verification String   @default("none")
+  reputation   Int      @default(0)
+  outingsDone  Int      @default(0)
+  isDemo       Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  accounts       Account[]
+  sessions       Session[]
+  plans          Plan[]
+  createdOutings Outing[]            @relation("OutingCreator")
+  memberships    OutingParticipant[]
+  messages       Message[]
+  reportsMade    Report[]            @relation("Reporter")
+  reportsAgainst Report[]            @relation("ReportedUser")
+  blocksMade     Block[]             @relation("Blocker")
+  blocksAgainst  Block[]             @relation("Blocked")
+  visitedPlaces  VisitedPlace[]
+}
+
+// Auth.js adapter tables (kept so OAuth providers can be added later without
+// a migration; credentials auth uses User.passwordHash + JWT sessions).
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ------------------------------------------------------- activity catalog
+
+/// Curated, deterministic place/activity data. The LLM ranks and sequences
+/// these rather than inventing venues, costs or coordinates.
+model Activity {
+  id              String  @id @default(cuid())
+  slug            String  @unique
+  name            String
+  description     String
+  city            String
+  locationName    String
+  lat             Float
+  lng             Float
+  /// primary category, see domain.INTEREST_CATEGORIES
+  category        String
+  /// JSON string[]
+  tags            String  @default("[]")
+  durationMinutes Int
+  costPerPerson   Int     @default(0)
+  currency        String  @default("INR")
+  /// JSON string[] of group types this suits, see domain.GROUP_TYPES
+  suitableFor     String  @default("[]")
+  kidFriendly     Boolean @default(false)
+  indoor          Boolean @default(false)
+  /// "morning" | "afternoon" | "evening" | "night" | "any" (JSON string[])
+  bestTimes       String  @default("[\"any\"]")
+  openFrom        Int     @default(0) // minutes from midnight
+  openTo          Int     @default(1440)
+  bookingRequired Boolean @default(false)
+  tips            String?
+  imageEmoji      String  @default("📍")
+
+  @@index([city, category])
+}
+
+// -------------------------------------------------------------- planning
+
+model Plan {
+  id       String @id @default(cuid())
+  userId   String
+  title    String
+  location String
+  lat      Float?
+  lng      Float?
+
+  startTime       DateTime
+  endTime         DateTime
+  durationMinutes Int
+
+  /// domain.GROUP_TYPES
+  groupType String
+  adults    Int    @default(1)
+  children  Int    @default(0)
+  /// JSON number[]
+  childAges String @default("[]")
+
+  /// domain.BUDGET_TIERS
+  budgetTier      String
+  budgetPerPerson Int?
+  currency        String @default("INR")
+
+  /// JSON string[]
+  interests  String  @default("[]")
+  surpriseMe Boolean @default(false)
+  radiusKm   Int     @default(15)
+  notes      String?
+
+  /// JSON Itinerary -- see src/lib/ai/schema.ts
+  itinerary String?
+  /// "draft" | "generating" | "ready" | "failed" | "saved"
+  status    String  @default("draft")
+  /// which AI provider produced the current itinerary
+  generator String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  revisions PlanRevision[]
+  outings   Outing[]
+
+  @@index([userId, createdAt])
+}
+
+/// Every AI edit is appended here so "make it cheaper" is reversible and
+/// auditable rather than a destructive overwrite.
+model PlanRevision {
+  id          String   @id @default(cuid())
+  planId      String
+  instruction String?
+  /// JSON Itinerary snapshot
+  itinerary   String
+  /// JSON string[] of item ids the AI reported as changed
+  changedIds  String   @default("[]")
+  summary     String?
+  createdAt   DateTime @default(now())
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId, createdAt])
+}
+
+// ---------------------------------------------------------------- social
+
+model Outing {
+  id         String  @id @default(cuid())
+  creatorId  String
+  planId     String?
+  /// itinerary item this outing was spun off from, if any
+  planItemId String?
+
+  title       String
+  description String?
+  /// domain.INTEREST_CATEGORIES
+  category    String
+
+  /// Public meeting point. Deliberately a named public place, never an address.
+  locationName String
+  city         String
+  lat          Float
+  lng          Float
+
+  startTime DateTime
+  endTime   DateTime
+
+  /// total people wanted at the outing, including the host
+  capacity Int
+  minAge   Int?
+  maxAge   Int?
+
+  /// "public" | "link" -- private/invite-only is intentionally out of MVP scope
+  visibility String   @default("public")
+  /// "open" | "full" | "closed" | "expired" | "cancelled"
+  status     String   @default("open")
+  /// true for "I'm here now" spontaneous requests
+  isHereNow  Boolean  @default(false)
+  expiresAt  DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creator      User                @relation("OutingCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  plan         Plan?               @relation(fields: [planId], references: [id], onDelete: SetNull)
+  participants OutingParticipant[]
+  conversation Conversation?
+  reports      Report[]
+
+  @@index([status, startTime])
+  @@index([city, category])
+}
+
+/// Join request + membership + match score in one row (the `Match` and
+/// participant concepts from the spec collapse cleanly into this).
+model OutingParticipant {
+  id         String  @id @default(cuid())
+  outingId   String
+  userId     String
+  /// "host" | "member"
+  role       String  @default("member")
+  /// "pending" | "accepted" | "declined" | "left" | "removed"
+  status     String  @default("pending")
+  matchScore Int     @default(0)
+  /// JSON string[] of human-readable match reasons
+  matchWhy   String  @default("[]")
+  message    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  outing Outing @relation(fields: [outingId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([outingId, userId])
+  @@index([userId, status])
+}
+
+// ------------------------------------------------------------------ chat
+
+/// Temporary, activity-scoped chat. Expires with the outing -- there is no
+/// permanent DM inbox by design.
+model Conversation {
+  id        String    @id @default(cuid())
+  outingId  String    @unique
+  expiresAt DateTime
+  closedAt  DateTime?
+  createdAt DateTime  @default(now())
+
+  outing   Outing    @relation(fields: [outingId], references: [id], onDelete: Cascade)
+  messages Message[]
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  senderId       String?
+  body           String
+  /// system messages (joins, leaves, expiry notices) have senderId = null
+  isSystem       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User?        @relation(fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
+}
+
+// ---------------------------------------------------------------- safety
+
+model Report {
+  id             String  @id @default(cuid())
+  reporterId     String
+  targetUserId   String?
+  targetOutingId String?
+  /// domain.REPORT_REASONS
+  reason         String
+  details        String?
+  /// "open" | "reviewing" | "actioned" | "dismissed"
+  status         String  @default("open")
+
+  createdAt DateTime @default(now())
+
+  reporter     User    @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  targetUser   User?   @relation("ReportedUser", fields: [targetUserId], references: [id], onDelete: Cascade)
+  targetOuting Outing? @relation(fields: [targetOutingId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+}
+
+model Block {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  blocker User @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+}
+
+model VisitedPlace {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  city      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
